@@ -14,6 +14,7 @@
 ### END INIT INFO
 
 # Created by Ahtenus
+# Modified by Peter
 
 # Based on http://www.minecraftwiki.net/wiki/Server_startup_script
 # Support for multiworld by Benni-chan
@@ -48,7 +49,7 @@ datepath() {
 	# datepath path filending-to-check returned-filending
 	if [ -e $1`date +%F`$2 ]
 	then
-		echo $1`date +%FT%T`$3
+		echo $1`date +%F-%H%M`$3
 	else
 		echo $1`date +%F`$3
 	fi
@@ -147,30 +148,52 @@ get_worlds() {
 }
 mc_whole_backup() {
 	as_user "mkdir -p $WHOLEBACKUP"
-	path=`datepath $WHOLEBACKUP/mine_`
-	as_user "cp -rP $MCPATH $path"
+	tmp=$WHOLEBACKUP/mc_back
+	dest=$WHOLEBACKUP/minecraft.`date +%F-%H%M`
+	as_user "cp -rP $MCPATH $tmp"
+	case "$BACKUPFORMAT" in
+		tar)
+			as_user "tar -hcjf $dest.tar.bz2 $tmp"
+			;;
+		zip)
+			as_user "7z a -tzip $dest.zip $tmp"
+			;;
+		*)
+			echo "$BACKUPFORMAT is no supported backup format"
+			;;
+	esac
+	as_user "rm -rf $tmp"
+	
 }
 mc_world_backup() {
+	thedate=`date +%F-%H%M`
 	get_worlds
-	today="`date +%F`" # If you don't want a folder for each day change to today=""
+	today="" # If you want a folder for each day change to today="`date +%F`"
 	for INDEX in ${!WORLDNAME[@]}
 	do
-		echo "Backing up minecraft ${WORLDNAME[$INDEX]}"
-		as_user "mkdir -p $BACKUPPATH/${today}"
-		
-		case "$BACKUPFORMAT" in
-			tar)
-				path=`datepath $BACKUPPATH/${today}/${WORLDNAME[$INDEX]}_ .tar.bz2 .tar.bz2`
-				as_user "tar -hcjf $path $MCPATH/${WORLDNAME[$INDEX]}"
-				;;
-			zip)
-				path=`datepath $BACKUPPATH/${today}/${WORLDNAME[$INDEX]}_ .zip .zip`
-				as_user "zip -rq $path $MCPATH/${WORLDNAME[$INDEX]}"
-				;;
-			*)
-				echo "$BACKUPFORMAT is no supported backup format"
-				;;
-		esac
+		if ${WORLDRAM[$INDEX]}	#currently does not backup non-ramdisk worlds
+		then
+			echo "Backing up minecraft ${WORLDNAME[$INDEX]}"
+			as_user "mkdir -p $BACKUPPATH/${today}"
+
+			dest=$BACKUPPATH/${today}/${WORLDNAME[$INDEX]}/${WORLDNAME[$INDEX]}.$thedate
+			tmp=$RAMDISK/${WORLDNAME[$INDEX]}.$thedate
+			as_user "mkdir $tmp"
+			as_user "cp -rxp $RAMDISK/${WORLDNAME[$INDEX]}/* $tmp/"
+
+			case "$BACKUPFORMAT" in
+				tar)
+					as_user "tar -hcjf $dest.tar.bz2 $tmp"
+					;;
+				zip)
+					as_user "7z a -tzip $dest.zip $tmp/*"
+					;;
+				*)
+					echo "$BACKUPFORMAT is no supported backup format"
+					;;
+			esac
+			as_user "rm -rf $tmp"
+		fi
 	done
 }
 check_links() {
@@ -205,6 +228,7 @@ check_links() {
 }
 to_ram() {
 	get_worlds
+	as_user "mkdir -p $RAMDISK"
 	for INDEX in ${!WORLDNAME[@]}
 	do
 		if ${WORLDRAM[$INDEX]}
@@ -221,8 +245,15 @@ to_disk() {
 	get_worlds
 	for INDEX in ${!WORLDNAME[@]}
 	do
-		as_user "rsync -rt --exclude 'ramdisk' $MCPATH/${WORLDNAME[$INDEX]}/ ${WORLDSTORAGE}/${WORLDNAME[$INDEX]}"
-		echo "${WORLDNAME[$INDEX]} copied to disk"
+		if ${WORLDRAM[$INDEX]}
+		then
+			tmp=`datepath $RAMDISK/${WORLDNAME[$INDEX]}_`
+			as_user "mkdir $tmp"
+			as_user "cp -rxp $RAMDISK/${WORLDNAME[$INDEX]}/* $tmp/"
+			as_user "rsync -rt --exclude 'ramdisk' $tmp/ ${WORLDSTORAGE}/${WORLDNAME[$INDEX]}"
+			as_user "rm -rf $tmp"
+			echo "${WORLDNAME[$INDEX]} copied to disk"
+		fi
 	done
 }
 mc_update() {
@@ -348,12 +379,12 @@ case "$1" in
 		;;
 	backup)
 		# Backups world
-		as_user "screen -p 0 -S $SCREEN -X eval 'stuff \"say Backing up world.\"\015'"
-		mc_saveoff
+#		as_user "screen -p 0 -S $SCREEN -X eval 'stuff \"say Backing up world.\"\015'"
+#		mc_saveoff
 		to_disk
 		mc_world_backup
-		mc_saveon
-		as_user "screen -p 0 -S $SCREEN -X eval 'stuff \"say Backup complete.\"\015'"
+#		mc_saveon
+#		as_user "screen -p 0 -S $SCREEN -X eval 'stuff \"say Backup complete.\"\015'"
 		;;
 	whole-backup)
 		# Backup everything
@@ -373,15 +404,15 @@ case "$1" in
 		# Writes from the ramdisk to disk, in case the server crashes. 
 		# Using ramdisk speeds things up a lot, especially if you allow
 		# teleportation on the server.
-		mc_saveoff
-		to_disk
-		mc_saveon
-		;;
-	connected)
-		# Lists connected users
-		as_user "screen -p 0 -S $SCREEN -X eval 'stuff list\015'"
-		sleep 3s
-		tac $MCPATH/server.log | grep -m 1 "Connected"
+		# Verify that the ramdisk is present before dumping
+		if [ -d $RAMDISK ]
+		then
+#			mc_saveoff
+			to_disk
+#			mc_saveon
+		else
+			echo "Not dumping ramdisk as $RAMDISK does not exist."
+		fi
 		;;
 	log-roll)
 		# Moves and Gzips the logfile, a big log file slows down the
@@ -445,9 +476,8 @@ case "$1" in
 		echo "update - fetches the latest version of minecraft.jar server and Bukkit"
 		echo "log-roll - Moves and gzips the logfile"
 		echo "to-disk - copies the worlds from the ramdisk to worldstorage"
-		echo "connected - lists connected users"
 		echo "status - Shows server status"
-		echo "version - returs Bukkit version"
+		echo "version - returns Bukkit version"
 		echo "links - creates nessesary symlinks"
 		echo "last - shows recently connected users"
 		echo "worlds - shows a list of available worlds"

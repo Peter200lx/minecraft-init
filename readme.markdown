@@ -1,7 +1,8 @@
 Init script for minecraft/bukkit servers
 =======================================
-A init script that apart form starting and stopping the server corretly also has some extra features
-for running a mincraft/craftbukkit server.
+A init script that apart from starting and stopping the server correctly also has some extra features for running a mincraft/craftbukkit server.
+
+This is a modification of Ahtenus's scripts for a different set of requirements. To function properly it expects ramdisk to be used for all worlds that are to be backed up. It also expects ramdisk to be large enough to hold the worlds twice while it runs the backup. The issue that forced this fork is that on our server our admins watch the minecraft console, and interact through it. Thus having text stuffed into the console buffer was not acceptable. It is likely that these changes will not be in the best interests of the most configurable server, and for that I would point to the [original repository](https://github.com/Ahtenus/minecraft-init).
 
 Features
 --------
@@ -10,10 +11,12 @@ Features
  * Cleaning of server.log, a big logfile slows down the server
  * Backup for worlds
  * Server updating and complete backup
+ * Does not requre stuffing commands into screen console in any of the backup commands.
 
 Requirements
 ------------
-screen,rsync
+screen,rsync,7z (p7zip-full package in ubuntu)
+a ramdisk twice as large as the worlds run from ramdisk
 
 Access server console
 =====================
@@ -27,7 +30,7 @@ Exit the console
 Setup
 =====
 
-1. Symlink the minecraft file to `/etc/init.d/minecraft`, set the required premissions and update rc.d.
+1. Symlink the minecraft file to `/etc/init.d/minecraft`, set the required permissions and update rc.d.
 
 		chmod 755 /etc/init.d/minecraft
 		update-rc.d minecraft defaults
@@ -59,8 +62,8 @@ For more help with the script, run
 
 	/etc/init.d/minecraft help
 
-[![Flattr this git repo](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=Ahtenus&url=https://github.com/Ahtenus/minecraft-init&title=minecraft-init&language=en_GB&tags=github&category=software) 
 
 Good stuff
 ==========
 [Backup rotation script](https://github.com/adamfeuer/rotate-backups) good if you want some kind or rolling of the world backups.
+[original minecraft-init repository](https://github.com/Ahtenus/minecraft-init)
