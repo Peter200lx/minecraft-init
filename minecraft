@@ -148,6 +148,7 @@ get_worlds() {
 }
 mc_whole_backup() {
 	as_user "mkdir -p $WHOLEBACKUP"
+	hr=`date +%H`
 	tmp=$WHOLEBACKUP/mc_back
 	dest=$WHOLEBACKUP/minecraft.`date +%F-%H%M`
 	as_user "cp -rP $MCPATH $tmp"
@@ -162,11 +163,18 @@ mc_whole_backup() {
 			echo "$BACKUPFORMAT is no supported backup format"
 			;;
 	esac
+	if [[  ( "$WHOLEBACKUPDAY" != "" )  && ("$hr" == "00") ]]
+	then
+		as_user "mkdir -p $WHOLEBACKUPDAY"
+		echo "copying daily backup to $WHOLEBACKUPDAY"
+		as_user "cp $dest.zip $WHOLEBACKUPDAY"
+	fi
 	as_user "rm -rf $tmp"
 	
 }
 mc_world_backup() {
 	thedate=`date +%F-%H%M`
+	hr=`date +%H`
 	get_worlds
 	today="" # If you want a folder for each day change to today="`date +%F`"
 	for INDEX in ${!WORLDNAME[@]}
@@ -193,6 +201,12 @@ mc_world_backup() {
 					;;
 			esac
 			as_user "rm -rf $tmp"
+			if [[  ( "$BACKUPPATHDAY" != "" )  && ("$hr" == "00") ]]
+			then
+				as_user "mkdir -p $BACKUPPATHDAY"
+				echo "copying ${WORLDNAME[$INDEX]} backup to $BACKUPPATHDAY"
+				as_user "cp $dest.zip $BACKUPPATHDAY"
+			fi
 		fi
 	done
 }

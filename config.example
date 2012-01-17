@@ -31,10 +31,14 @@ MAXMEM="2048M"
 INVOCATION="java -Xmx$MAXMEM -Xms$INITMEM -XX:+UseConcMarkSweepGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=$CPU_COUNT -XX:+AggressiveOpts -jar $SERVICE nogui"
 # Where the world backups should go
 BACKUPPATH="/home/${USERNAME}/minebak"
+# Where to move world backups if made at midnight, and if a string is defined below
+BACKUPPATHDAY=""
 # Where the logs are copied with log-roll 
 LOGPATH="${MCPATH}/logs"
 # Where the whole minecraft directory is copied when whole-backup is executed
 WHOLEBACKUP="/home/${USERNAME}/serverbak"
+# Where to move minecraft directory backups if made at midnight and string below is not ""
+WHOLEBACKUPDAY=""
 # Where the worlds are located on the disk. Can not be the same as MCPATH.
 WORLDSTORAGE="${MCPATH}/worldstorage"
 # Format to use for world backup (tar or zip).
